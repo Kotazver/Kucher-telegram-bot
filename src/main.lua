@@ -8,6 +8,7 @@ local sqlite = require("lsqlite3")
 
 -- Config loading --
 local ACTIVE_DIALOGUES = {}
+local LOADED_USERS = {}
 
 local CONFIG = nil
 if not utils.getJsonContent("../config.json") then
@@ -34,8 +35,7 @@ db:exec([[
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
         username TEXT NOT NULL,
-        language TEXT NOT NULL,
-        last_activity_time INTEGER NOT NULL,
+        language TEXT NOT NULL
     )
 ]])
 
@@ -48,6 +48,58 @@ local function helloName(user_id)
     api.send_message(user_id,"Hello, " .. res .. "!")
 end
 
+local function postVideo(user_id)
+    if not user_id then return false,"Invalid arguments" end
+    local index = tostring(user_id)
+
+    local file_id = nil
+    local video_title = nil
+    while not file_id do
+        api.send_message(user_id,"Please send video to upload")
+        local res = coroutine.yield()
+        if res.message and res.message.video then
+            file_id = res.message.video.file_id
+            if res.message.caption then
+                local video_title = res.message.caption
+            end
+        end
+    end
+
+    while not video_title do
+        api.send_message(user_id,"Please send video title. Video title must be shorter than 100 symbols")
+        local res = coroutine.yield()
+        if res.message and res.message.text and utf8.len(res.message.text) <= 100 then
+            video_title = res.message.text
+        elseif res.message and res.message.text and utf8.len(res.message.text) > 100 then
+            api.send_message(user_id,"Too long video title")
+        end
+    end
+
+    local posting_date = os.time()
+    local video_author
+end
+
+local function newUserCreate(user)
+    local user_id = user.id
+    local user_lang = user.language_code
+    local username = nil
+    if user.username then
+        username = user.username
+    else
+        username = user.first_name
+    end
+
+    local insert = db:prepare("INSERT INTO users (user_id,username,language) VALUES (?,?,?)")
+    if not insert then io.write(user_id .. " | Error while inserting into table " .. db:errmsg() .. "\n") end
+    insert:bind_values(user_id,username,user_lang)
+    local succ = insert:step()
+    if succ == sqlite.DONE then
+        return true
+    else
+        return nil
+    end
+    insert:finalize()
+end
 
 -------------------
 --- BOT RUNTIME ---
@@ -68,6 +120,21 @@ function api.on_update(update)
     end
 
     local index = tostring(user_id)
+    
+    if not LOADED_USERS[index] and message then
+        local check = db:prepare("SELECT 1 FROM users WHERE user_id = ? LIMIT 1")
+        check:bind_values(user_id)
+        local res = check:step()
+
+        if res == sqlite.DONE then
+            local succ = newUserCreate(message.from)
+            if succ then
+                io.write(user_id .. " | New user!\n")
+            else
+                io.write(user_id .. " | Failed when trying to add new user to db\n")
+            end
+        end
+    end
 
     if ACTIVE_DIALOGUES[index] and not api.is_command(update.message) then
         local co = ACTIVE_DIALOGUES[index]
@@ -84,6 +151,9 @@ function api.on_update(update)
         local co = nil
         if cmd == "/hello" then
             co = coroutine.create(helloName)
+            coroutine.resume(co,update.message.from.id)
+        elseif cmd == "/post" then
+            co = coroutine.create(postVideo)
             coroutine.resume(co,update.message.from.id)
         end
         
