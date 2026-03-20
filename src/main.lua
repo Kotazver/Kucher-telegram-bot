@@ -80,7 +80,8 @@ local function postVideo(user_id)
         local response = coroutine.yield()
         if response.message and response.message.video then
             file_id = response.message.video.file_id
-            if response.message.caption then
+            print(utf8.len(response.message.caption))
+            if response.message.caption and utf8.len(response.message.caption) <= 100 then
                 video_title = response.message.caption
             end
         end
