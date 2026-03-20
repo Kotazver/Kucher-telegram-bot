@@ -22,6 +22,8 @@ else
     if not CONFIG then
         io.write("Failed while loading configuration :(\n")
         os.exit()
+    else
+        io.write("Successfully loaded configuration file\n")
     end
 end
 
@@ -29,15 +31,34 @@ local api = require("telegram-bot-lua").configure(CONFIG.bot_token)
 
 -- Database setup --
 local db = sqlite.open("../database/AFipedia.db")
-db:exec([[
+local res = db:exec([[
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
+    
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
         username TEXT NOT NULL,
         language TEXT NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS videos (
+        video_id INTEGER PRIMARY KEY,
+        author_id INTEGER NOT NULL,
+        file_id INTEGER NOT NULL,
+        video_title TEXT NOT NULL,
+        posting_date INTEGER NOT NULL,
+
+        FOREIGN KEY(author_id) REFERENCES users(user_id)
     )
 ]])
+
+if res == sqlite.ERROR then
+    io.write("Error while setting up database, err: " .. db:errmsg())
+    os.exit()
+else
+    io.write("Successfully set up database\n")
+end
+
 
 -- Functions --
 local function helloName(user_id)
@@ -56,27 +77,34 @@ local function postVideo(user_id)
     local video_title = nil
     while not file_id do
         api.send_message(user_id,"Please send video to upload")
-        local res = coroutine.yield()
-        if res.message and res.message.video then
-            file_id = res.message.video.file_id
-            if res.message.caption then
-                local video_title = res.message.caption
+        local response = coroutine.yield()
+        if response.message and response.message.video then
+            file_id = response.message.video.file_id
+            if response.message.caption then
+                video_title = response.message.caption
             end
         end
     end
 
     while not video_title do
         api.send_message(user_id,"Please send video title. Video title must be shorter than 100 symbols")
-        local res = coroutine.yield()
-        if res.message and res.message.text and utf8.len(res.message.text) <= 100 then
-            video_title = res.message.text
-        elseif res.message and res.message.text and utf8.len(res.message.text) > 100 then
+        local response = coroutine.yield()
+        if response.message and response.message.text and utf8.len(response.message.text) <= 100 then
+            video_title = response.message.text
+        elseif response.message and response.message.text and utf8.len(response.message.text) > 100 then
             api.send_message(user_id,"Too long video title")
         end
     end
 
     local posting_date = os.time()
-    local video_author
+
+    local insert = db:prepare("INSERT INTO videos (author_id,file_id,video_title,posting_date) VALUES (?,?,?,?)")
+    insert:bind_values(user_id,file_id,video_title,posting_date)
+    local res = insert:step()
+    if res == sqlite.DONE then
+        api.send_message(user_id,"Video successfully loaded")
+        io.write(user_id .. " | Successfully loaded video with title " .. video_title .. "\n")
+    end
 end
 
 local function newUserCreate(user)
@@ -120,7 +148,8 @@ function api.on_update(update)
     end
 
     local index = tostring(user_id)
-    
+
+    -- Check if user exists in database ---
     if not LOADED_USERS[index] and message then
         local check = db:prepare("SELECT 1 FROM users WHERE user_id = ? LIMIT 1")
         check:bind_values(user_id)
