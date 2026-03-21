@@ -102,6 +102,7 @@ local function postVideo(user_id)
     local insert = db:prepare("INSERT INTO videos (author_id,file_id,video_title,posting_date) VALUES (?,?,?,?)")
     insert:bind_values(user_id,file_id,video_title,posting_date)
     local res = insert:step()
+    insert:finalize()
     if res == sqlite.DONE then
         api.send_message(user_id,"Video successfully loaded")
         io.write(user_id .. " | Successfully loaded video with title " .. video_title .. "\n")
@@ -122,12 +123,12 @@ local function newUserCreate(user)
     if not insert then io.write(user_id .. " | Error while inserting into table " .. db:errmsg() .. "\n") end
     insert:bind_values(user_id,username,user_lang)
     local succ = insert:step()
+    insert:finalize()
     if succ == sqlite.DONE then
         return true
     else
         return nil
     end
-    insert:finalize()
 end
 
 -------------------
