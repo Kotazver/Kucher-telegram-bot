@@ -131,6 +131,15 @@ local function newUserCreate(user)
     end
 end
 
+local function getUserVideos(user_id)
+    local videos = {}
+    for video in db:nrows("SELECT * FROM videos WHERE author_id = " .. user_id) do
+        table.insert(videos,video)
+    end
+    
+    return videos
+end
+
 -------------------
 --- BOT RUNTIME ---
 -------------------
@@ -185,6 +194,9 @@ function api.on_update(update)
             coroutine.resume(co,update.message.from.id)
         elseif cmd == "/post" then
             co = coroutine.create(postVideo)
+            coroutine.resume(co,update.message.from.id)
+        elseif cmd == "/myvids" then
+            co = coroutine.create(checkUserVideos)
             coroutine.resume(co,update.message.from.id)
         end
         
