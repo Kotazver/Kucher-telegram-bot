@@ -242,6 +242,14 @@ local function checkUserVideos(user_id,videos_author)
     end
 end
 
+function api.is_command(message)
+    if not message or not message.text or message.text:sub(1,1) == "/" then
+        return true
+    else
+        return false
+    end
+end
+
 -------------------
 --- BOT RUNTIME ---
 -------------------
