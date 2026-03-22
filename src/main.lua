@@ -207,6 +207,23 @@ end
 
 local function checkUserVideos(user_id,videos_author)
     local index = tostring(user_id)
+    while not videos_author do
+        api.send_message(user_id,"Please enter username")
+        local select = db:prepare("SELECT user_id FROM users WHERE username = ?")
+        local response = coroutine.yield()
+        if response.message.text:sub(1,1) == "@" then
+            response.message.text = response.message.text:sub(2,#response.message.text)
+        end
+        
+        select:bind_values(response.message.text)
+        local result = select:step()
+        if result == sqlite.ROW then
+            videos_author = select:get_values()[1]
+        else
+            api.send_message(user_id,"Can't found user with that username")
+        end
+    end
+    
     local videos = getUserVideos(videos_author)
     local selector = videosSelector(videos)
     local msg_id = api.send_message(user_id,selector.page_text[1],{reply_markup=selector.kbs[1]}).result.message_id
@@ -325,6 +342,9 @@ function api.on_update(update)
         elseif cmd == "/myvids" then
             co = coroutine.create(checkUserVideos)
             coroutine.resume(co,update.message.from.id,update.message.from.id)
+        elseif cmd == "/uservids" then
+            co = coroutine.create(checkUserVideos)
+            coroutine.resume(co,user_id)
         end
         
         if co then
