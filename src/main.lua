@@ -9,6 +9,7 @@ local sqlite = require("lsqlite3")
 -- Config loading --
 local ACTIVE_DIALOGUES = {}
 local LOADED_USERS = {}
+local TEMP_MESSAGES = {}
 
 local CONFIG = nil
 if not utils.getJsonContent("../config.json") then
@@ -80,7 +81,6 @@ local function postVideo(user_id)
         local response = coroutine.yield()
         if response.message and response.message.video then
             file_id = response.message.video.file_id
-            print(utf8.len(response.message.caption))
             if response.message.caption and utf8.len(response.message.caption) <= 100 then
                 video_title = response.message.caption
             end
@@ -133,11 +133,76 @@ end
 
 local function getUserVideos(user_id)
     local videos = {}
+
     for video in db:nrows("SELECT * FROM videos WHERE author_id = " .. user_id) do
         table.insert(videos,video)
     end
-    
+
     return videos
+end
+
+local function videosSelector(videos)
+    local selector = {}
+    
+    -- Separating videos for several pages --
+    local pages = {}
+    for i = 1,#videos,10 do
+        local page = {}
+        for j = i,i + 9 do
+            table.insert(page,videos[j])
+        end
+        table.insert(pages,page)
+    end
+
+    -- Selector message content for every page --
+    selector.page_text = {}
+    for i,page in ipairs(pages) do
+        selector.page_text[i] = "Select video:" .. "\n\n"
+        for j,video in ipairs(pages[i]) do
+            if j == 10 then
+                selector.page_text[i] = selector.page_text[i] .. "[" .. j .. "]   " .. video.video_title .. "\n"
+            else
+                selector.page_text[i] = selector.page_text[i] .. "[ " .. j .. " ]   " .. video.video_title .. "\n"
+            end
+        end
+    end
+
+    -- Reply markups for every page --
+    selector.kbs = {}
+    for i,page in ipairs(pages) do
+        local keys = {}
+        for j = 1,10 do
+            if page[j] then
+                keys[j] = tostring(j)
+            else
+                keys[j] = ""
+            end
+        end
+        
+        local kb = api.inline_keyboard()
+            :row(api.row()
+                :callback_data_button(keys[1], "page" .. tostring(i) .. "video" .. 1)
+                :callback_data_button(keys[2], "page" .. tostring(i) .. "video" .. 2)
+                :callback_data_button(keys[3], "page" .. tostring(i) .. "video" .. 3)
+                :callback_data_button(keys[4], "page" .. tostring(i) .. "video" .. 4)
+                :callback_data_button(keys[5], "page" .. tostring(i) .. "video" .. 5)
+            )
+            :row(api.row()
+                :callback_data_button(keys[6], "page" .. tostring(i) .. "video" .. 6)
+                :callback_data_button(keys[7], "page" .. tostring(i) .. "video" .. 7)
+                :callback_data_button(keys[8], "page" .. tostring(i) .. "video" .. 8)
+                :callback_data_button(keys[9], "page" .. tostring(i) .. "video" .. 9)
+                :callback_data_button(keys[10], "page" .. tostring(i) .. "video" .. 10)
+            )
+
+        table.insert(selector.kbs,kb)
+    end
+
+    return selector
+end
+
+local function checkUserVideos(user_id)
+    
 end
 
 -------------------
