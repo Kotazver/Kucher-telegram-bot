@@ -205,9 +205,9 @@ local function videosSelector(videos)
     return selector
 end
 
-local function checkUserVideos(user_id)
+local function checkUserVideos(user_id,videos_author)
     local index = tostring(user_id)
-    local videos = getUserVideos(user_id)
+    local videos = getUserVideos(videos_author)
     local selector = videosSelector(videos)
     local msg_id = api.send_message(user_id,selector.page_text[1],{reply_markup=selector.kbs[1]}).result.message_id
     TEMP_MESSAGES[index] = msg_id
@@ -306,7 +306,7 @@ function api.on_update(update)
             coroutine.resume(co,update.message.from.id)
         elseif cmd == "/myvids" then
             co = coroutine.create(checkUserVideos)
-            coroutine.resume(co,update.message.from.id)
+            coroutine.resume(co,update.message.from.id,co,update.message.from.id)
         end
         
         if co then
