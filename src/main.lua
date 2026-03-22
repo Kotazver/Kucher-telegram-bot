@@ -194,6 +194,10 @@ local function videosSelector(videos)
                 :callback_data_button(keys[9], "page" .. tostring(i) .. "video" .. 9)
                 :callback_data_button(keys[10], "page" .. tostring(i) .. "video" .. 10)
             )
+            :row(api.row()
+                :callback_data_button("<<<","previous_page")
+                :callback_data_button(">>>","next_page")
+            )
 
         table.insert(selector.kbs,kb)
     end
@@ -202,7 +206,40 @@ local function videosSelector(videos)
 end
 
 local function checkUserVideos(user_id)
-    
+    local index = tostring(user_id)
+    local videos = getUserVideos(user_id)
+    local selector = videosSelector(videos)
+    local msg_id = api.send_message(user_id,selector.page_text[1],{reply_markup=selector.kbs[1]}).result.message_id
+    TEMP_MESSAGES[index] = msg_id
+
+    local current_page = 1
+    local media_message_id = nil
+    while true do
+        local callback_query = coroutine.yield().callback_query
+        local data = callback_query.data
+        if data == "previous_page" then
+            api.answer_callback_query(callback_query.id, {text = "<<<"})
+            if current_page - 1 >= 1 then
+                current_page = current_page - 1
+            end
+        elseif data == "next_page" then
+            api.answer_callback_query(callback_query.id, {text = ">>>"})
+            if current_page + 1 <= 10 then
+                current_page = current_page + 1
+            end
+        elseif data:sub(1,4) == "page" then
+            local video_num = data:sub(5,5) * 10 + data:sub(11,12) - 10
+            local video = videos[video_num]
+            if not media_message_id then
+                media_message_id = api.send_video(user_id,video.file_id,{caption = video.video_title}).result.message_id
+                api.answer_callback_query(callback_query.id, {text = video.video_title})
+            else
+                api.edit_message_media(user_id,media_message_id,{type = "video",media = video.file_id,caption = video.video_title})
+            end
+        end
+
+        api.edit_message_text(user_id,msg_id,selector.page_text[current_page],{reply_markup = selector.kbs[current_page]})
+    end
 end
 
 -------------------
@@ -246,6 +283,8 @@ function api.on_update(update)
         coroutine.resume(co,update)
         if coroutine.status(co) == "dead" then
             ACTIVE_DIALOGUES[index] = nil
+            api.delete_message(user_id,TEMP_MESSAGES[index])
+            TEMP_MESSAGES[index] = nil
             io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
         end
     end
@@ -254,6 +293,11 @@ function api.on_update(update)
     if message and api.is_command(update.message) then
         local cmd = string.lower(message.text)
         local co = nil
+        if TEMP_MESSAGES[index] then
+            api.delete_message(user_id,TEMP_MESSAGES[index])
+            TEMP_MESSAGES[index] = nil
+        end
+
         if cmd == "/hello" then
             co = coroutine.create(helloName)
             coroutine.resume(co,update.message.from.id)
