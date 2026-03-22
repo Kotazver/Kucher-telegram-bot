@@ -216,6 +216,7 @@ local function checkUserVideos(user_id,videos_author)
     local media_message_id = nil
     while true do
         local callback_query = coroutine.yield().callback_query
+        if not callback_query then goto continue end
         local data = callback_query.data
         if data == "previous_page" then
             api.answer_callback_query(callback_query.id, {text = "<<<"})
@@ -235,11 +236,13 @@ local function checkUserVideos(user_id,videos_author)
                 api.answer_callback_query(callback_query.id, {text = video.video_title})
             else
                 api.edit_message_media(user_id,media_message_id,{type = "video",media = video.file_id,caption = video.video_title})
+                api.answer_callback_query(callback_query.id, {text = video.video_title})
             end
         end
 
         api.edit_message_text(user_id,msg_id,selector.page_text[current_page],{reply_markup = selector.kbs[current_page]})
-    end
+        ::continue::
+    end                                             
 end
 
 function api.is_command(message)
@@ -286,15 +289,22 @@ function api.on_update(update)
         end
     end
 
-    if ACTIVE_DIALOGUES[index] and not api.is_command(update.message) then
+    if ACTIVE_DIALOGUES[index] then
         local co = ACTIVE_DIALOGUES[index]
-        coroutine.resume(co,update)
+        local succ,err = coroutine.resume(co,update)
+
+        if not succ then
+            print(user_id .. " | Error while resuming coroutine: " .. err)
+        end
+
         if coroutine.status(co) == "dead" then
             ACTIVE_DIALOGUES[index] = nil
             api.delete_message(user_id,TEMP_MESSAGES[index])
             TEMP_MESSAGES[index] = nil
             io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
         end
+
+        return
     end
 
     -- Command handling --
@@ -314,7 +324,7 @@ function api.on_update(update)
             coroutine.resume(co,update.message.from.id)
         elseif cmd == "/myvids" then
             co = coroutine.create(checkUserVideos)
-            coroutine.resume(co,update.message.from.id,co,update.message.from.id)
+            coroutine.resume(co,update.message.from.id,update.message.from.id)
         end
         
         if co then
