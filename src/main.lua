@@ -177,6 +177,18 @@ local function videosSelector(videos)
             else
                 keys[j] = ""
             end
+
+            if page[i - 1] then
+                keys.previous = "<<<"
+            else
+                keys.previous = ""
+            end
+
+            if page[i + 1] then
+                keys.next = ">>>"
+            else
+                keys.next = ""
+            end
         end
         
         local kb = api.inline_keyboard()
@@ -195,8 +207,8 @@ local function videosSelector(videos)
                 :callback_data_button(keys[10], "page" .. tostring(i) .. "video" .. 10)
             )
             :row(api.row()
-                :callback_data_button("<<<","previous_page")
-                :callback_data_button(">>>","next_page")
+                :callback_data_button(keys.previous,"previous_page")
+                :callback_data_button(keys.next,"next_page")
             )
 
         table.insert(selector.kbs,kb)
