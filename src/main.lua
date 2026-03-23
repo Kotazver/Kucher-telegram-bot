@@ -328,7 +328,9 @@ function api.on_update(update)
             TEMP_MESSAGES[index] = nil
         end
 
-        if cmd == "/hello" then
+        if cmd == "/back" then
+            ACTIVE_DIALOGUES[index] = nil
+        elseif cmd == "/hello" then
             co = coroutine.create(helloName)
             coroutine.resume(co,update.message.from.id)
         elseif cmd == "/post" then
