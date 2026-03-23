@@ -275,7 +275,9 @@ local function checkUserVideos(user_id,videos_author)
 end
 
 function api.is_command(message)
-    if not message or not message.text or message.text:sub(1,1) == "/" then
+    if not message then return false end
+    if message.text:sub(1,1) == "/" then
+        print("Command")
         return true
     else
         return false
@@ -318,26 +320,26 @@ function api.on_update(update)
         end
     end
 
-    if ACTIVE_DIALOGUES[index] then
-        local co = ACTIVE_DIALOGUES[index]
-        local succ,err = coroutine.resume(co,update)
+    -- if ACTIVE_DIALOGUES[index] then
+    --     local co = ACTIVE_DIALOGUES[index]
+    --     local succ,err = coroutine.resume(co,update)
 
-        if not succ then
-            print(user_id .. " | Error while resuming coroutine: " .. err)
-        end
+    --     if not succ then
+    --         print(user_id .. " | Error while resuming coroutine: " .. err)
+    --     end
 
-        if coroutine.status(co) == "dead" then
-            ACTIVE_DIALOGUES[index] = nil
-            api.delete_message(user_id,TEMP_MESSAGES[index])
-            TEMP_MESSAGES[index] = nil
-            io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
-        end
+    --     if coroutine.status(co) == "dead" then
+    --         ACTIVE_DIALOGUES[index] = nil
+    --         api.delete_message(user_id,TEMP_MESSAGES[index])
+    --         TEMP_MESSAGES[index] = nil
+    --         io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
+    --     end
 
-        return
-    end
+    --     return
+    -- end
 
     -- Command handling --
-    if message and api.is_command(update.message) then
+    if api.is_command(update.message) then
         local cmd = string.lower(message.text)
         local co = nil
         if TEMP_MESSAGES[index] then
@@ -362,6 +364,20 @@ function api.on_update(update)
         if co then
             ACTIVE_DIALOGUES[index] = co
             io.write(user_id .. " | Coroutine started and added to active dialogues\n")
+        end
+    else
+        local co = ACTIVE_DIALOGUES[index]
+        local succ,err = coroutine.resume(co,update)
+
+        if not succ then
+            print(user_id .. " | Error while resuming coroutine: " .. err)
+        end
+
+        if coroutine.status(co) == "dead" then
+            ACTIVE_DIALOGUES[index] = nil
+            api.delete_message(user_id,TEMP_MESSAGES[index])
+            TEMP_MESSAGES[index] = nil
+            io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
         end
     end
 end
