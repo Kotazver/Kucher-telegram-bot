@@ -29,7 +29,9 @@ else
 end
 
 if CONFIG.bot_token == "YOUR_BOT_TOKEN" then
-    io.write("Please set telegram bot api token")
+    io.write("Please enter telegram bot api token:\n")
+    local token = io.read()
+    utils.createJsonFile("config.json",{bot_token = token})
     os.exit()
 end
 local api = require("telegram-bot-lua").configure(CONFIG.bot_token)
