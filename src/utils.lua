@@ -20,7 +20,7 @@ UTILS.createJsonFile = function (path,table)
     if not table or not path then return false, "invalid arguments" end
 
     if path:sub(#path - 5,#path) ~= ".json" then
-        print(path:sub(#path - 4,#path))
+        path = path .. ".json"
     end
 
     local file = io.open(path,"w+")
