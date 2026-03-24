@@ -1,2 +1,2 @@
 # Kucher-telegram-bot
-Telegram bot created to share videos vith Anatoliy Fitness
+Telegram bot that provides abillity to share videos
