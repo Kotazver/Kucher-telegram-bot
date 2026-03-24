@@ -14,7 +14,7 @@ local TEMP_MESSAGES = {}
 local CONFIG = nil
 if not utils.getJsonContent("config.json") then
     utils.createJsonFile("config.json",{
-        bot_token = ""
+        bot_token = "YOUR_BOT_TOKEN"
     })
     io.write("Can't load configuration file, generating new, to start bot set bot token\n")
     os.exit()
@@ -28,10 +28,14 @@ else
     end
 end
 
+if CONFIG.bot_token == "YOUR_BOT_TOKEN" then
+    io.write("Please set telegram bot api token")
+    os.exit()
+end
 local api = require("telegram-bot-lua").configure(CONFIG.bot_token)
 
 -- Database setup --
-local db = sqlite.open("../database/AFipedia.db")
+local db = sqlite.open("database/AFipedia.db")
 local res = db:exec([[
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
