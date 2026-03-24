@@ -1,4 +1,4 @@
-local utils = require("utils")
+local utils = require("src.utils")
 local json = require("dkjson")
 local sqlite = require("lsqlite3")
 
@@ -12,14 +12,14 @@ local LOADED_USERS = {}
 local TEMP_MESSAGES = {}
 
 local CONFIG = nil
-if not utils.getJsonContent("../config.json") then
-    utils.createJsonFile("../config.json",{
+if not utils.getJsonContent("config.json") then
+    utils.createJsonFile("config.json",{
         bot_token = ""
     })
     io.write("Can't load configuration file, generating new, to start bot set bot token\n")
     os.exit()
 else
-    CONFIG = utils.getJsonContent("../config.json")
+    CONFIG = utils.getJsonContent("config.json")
     if not CONFIG then
         io.write("Failed while loading configuration :(\n")
         os.exit()
