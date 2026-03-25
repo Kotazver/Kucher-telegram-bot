@@ -354,7 +354,7 @@ function api.on_update(update)
             ACTIVE_DIALOGUES[index] = co
             io.write(user_id .. " | Coroutine started and added to active dialogues\n")
         end
-    else
+    elseif ACTIVE_DIALOGUES[index] then
         local co = ACTIVE_DIALOGUES[index]
         local succ,err = coroutine.resume(co,update)
 
@@ -368,6 +368,8 @@ function api.on_update(update)
             TEMP_MESSAGES[index] = nil
             io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
         end
+    else
+        api.send_message(user_id,"Unknown command")
     end
 end
 
