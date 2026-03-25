@@ -281,7 +281,7 @@ local function checkUserVideos(user_id,videos_author)
 end
 
 function api.is_command(message)
-    if not message or message.text then return false end
+    if not message or not message.text then return false end
     if message.text:sub(1,1) == "/" then
         return true
     else
