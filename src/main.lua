@@ -147,9 +147,11 @@ local function getUserVideos(user_id)
     return videos
 end
 
-local function videosSelector(videos)
+local function videosSelector(videos,selector_text)
     local selector = {}
-    
+    if not videos or type(videos) ~= "table" then return nil end
+    if type(selector_text) ~= "string" then return nil end
+
     -- Separating videos for several pages --
     local pages = {}
     for i = 1,#videos,10 do
@@ -243,7 +245,8 @@ local function checkUserVideos(user_id,videos_author)
     end
     
     local videos = getUserVideos(videos_author)
-    local selector = videosSelector(videos)
+    local selector = videosSelector(videos,"Please select video")
+    if not selector then return nil end
     local msg_id = api.send_message(user_id,selector.page_text[1],{reply_markup=selector.kbs[1]}).result.message_id
     TEMP_MESSAGES[index] = msg_id
 
