@@ -186,13 +186,13 @@ local function videosSelector(videos,selector_text)
                 keys[j] = ""
             end
 
-            if page[i - 1] then
+            if pages[i - 1] then
                 keys.previous = "<<<"
             else
                 keys.previous = ""
             end
 
-            if page[i + 1] then
+            if pages[i + 1] then
                 keys.next = ">>>"
             else
                 keys.next = ""
@@ -292,6 +292,38 @@ function api.is_command(message)
     end
 end
 
+local function deletePost(user_id)
+    local index = tostring(user_id)
+    local videos = getUserVideos(user_id)
+    local selector = videosSelector(videos,"Please select video to delete")
+    if not selector then return nil end
+    local msg_id = api.send_message(user_id,selector.page_text[1],{reply_markup=selector.kbs[1]}).result.message_id
+    local current_page = 1
+    while true do
+        local callback_query = coroutine.yield().callback_query
+        if not callback_query then goto continue end
+        local data = callback_query.data
+        if data == "previous_page" then
+            api.answer_callback_query(callback_query.id, {text = "<<<"})
+            if current_page - 1 >= 1 then
+                current_page = current_page - 1
+            end
+        elseif data == "next_page" then
+            api.answer_callback_query(callback_query.id, {text = ">>>"})
+            if current_page + 1 <= 10 then
+                current_page = current_page + 1
+            end
+        elseif data:sub(1,4) == "page" then
+            local video_num = data:sub(5,5) * 10 + data:sub(11,12) - 10
+            db:execute("DELETE FROM videos WHERE video_id = " .. videos[video_num].video_id)
+            api.answer_callback_query(callback_query.id, {text = videos[video_num].video_title .. " removed"})
+            api.edit_message_text(user_id,msg_id,"Video successfully deleted")
+            return
+        end
+        ::continue::
+    end  
+end
+
 -------------------
 --- BOT RUNTIME ---
 -------------------
@@ -350,6 +382,9 @@ function api.on_update(update)
             coroutine.resume(co,update.message.from.id,update.message.from.id)
         elseif cmd == "/uservids" then
             co = coroutine.create(checkUserVideos)
+            coroutine.resume(co,user_id)
+        elseif cmd == "/deletepost" then
+            co = coroutine.create(deletePost)
             coroutine.resume(co,user_id)
         end
         
