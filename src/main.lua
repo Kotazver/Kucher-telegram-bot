@@ -36,7 +36,10 @@ if CONFIG.bot_token == "YOUR_BOT_TOKEN" then
 end
 local api = require("telegram-bot-lua").configure(CONFIG.bot_token)
 
--- Database setup --
+-- Command list loading --
+local COMMAND_LIST = require("commandList")
+
+-- "Database setup --
 local db = sqlite.open("database/AFipedia.db")
 local res = db:exec([[
     PRAGMA foreign_keys = ON;
@@ -324,6 +327,18 @@ local function deletePost(user_id)
     end  
 end
 
+local function help(user_id)
+    local helping_msg = "Bot provides abillity to share funny videos with other users\n\n"
+    for i,group in pairs(COMMAND_LIST) do
+        local len = nil
+        for command,description in pairs(group) do
+            helping_msg = helping_msg .. "/" .. command .. " ~=> " .. description .. "\n"
+        end
+        helping_msg = helping_msg .. "\n"
+    end
+    api.send_message(user_id,helping_msg)
+end
+
 -------------------
 --- BOT RUNTIME ---
 -------------------
@@ -386,6 +401,8 @@ function api.on_update(update)
         elseif cmd == "/deletepost" then
             co = coroutine.create(deletePost)
             coroutine.resume(co,user_id)
+        elseif cmd == "/help" then
+            help(user_id)
         end
         
         if co then
