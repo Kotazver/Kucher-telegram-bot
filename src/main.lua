@@ -339,10 +339,6 @@ local function help(user_id)
     api.send_message(user_id,helping_msg)
 end
 
-local function getVideos()
-    
-end
-
 local function showRandomVids(user_id)
     local is_finished = false
     while true do
