@@ -237,6 +237,7 @@ end
 local function checkUserVideos(user_id,videos_author) -- Func to check user's videos by username --
     local index = tostring(user_id)
 
+    io.write(user_id .. " | User checking video by author name\n")
     -- Trying to get username from user if it isn't user with that name in db say about that --
     while not videos_author do
         api.send_message(user_id,"Please enter username")
@@ -250,8 +251,10 @@ local function checkUserVideos(user_id,videos_author) -- Func to check user's vi
         local result = select:step()
         if result == sqlite.ROW then
             videos_author = select:get_values()[1]
+            io.write(user_id .. " | Found user by name: " .. response.message.text .. " with user id: " .. videos_author .. "\n")
         else
             api.send_message(user_id,"Can't found user with that username")
+            io.write(user_id .. " | Failed when trying to found user\n")
         end
     end
 
@@ -305,6 +308,8 @@ function api.is_command(message) -- Simplification version of telegram-bot-lua l
 end
 
 local function deletePost(user_id) -- Func to delete loaded video --
+    
+    io.write(user_id .. " | User removing video\n")
     local videos = getUserVideos(user_id)
     local selector = videosSelector(videos,"Please select video to delete")
     if not selector then return nil end
@@ -327,6 +332,7 @@ local function deletePost(user_id) -- Func to delete loaded video --
         elseif data:sub(1,4) == "page" then
             local video_num = data:sub(5,5) * 10 + data:sub(11,12) - 10
             db:execute("DELETE FROM videos WHERE video_id = " .. videos[video_num].video_id)
+            io.write(user_id .. " | User removed video with id " .. videos[video_num].video_id .. "\n")
             api.answer_callback_query(callback_query.id, {text = videos[video_num].video_title .. " removed"})
             api.edit_message_text(user_id,msg_id,"Video successfully deleted")
             return
@@ -336,6 +342,7 @@ local function deletePost(user_id) -- Func to delete loaded video --
 end
 
 local function help(user_id)
+    io.write(user_id .. " | Called helping message\n")
     local helping_msg = "Bot provides abillity to share funny videos with other users\n\n"
     for i,group in pairs(COMMAND_LIST) do
         local len = nil
@@ -349,30 +356,24 @@ end
 
 local function showRandomVids(user_id)
     -- Here we're sending random video to user if '🛑' haven't pressed do it again --
-    local is_finished = false
-    while true do
-        for row in db:nrows("SELECT video_title,file_id,author_id FROM videos ORDER BY RANDOM()") do
-            local kb = api.keyboard(true, true)
-                :row({'🆕'})
-                :row({'🛑'})
-            local author_name = "unknown"
-            for author in db:nrows("SELECT username FROM users WHERE user_id = " .. row.author_id .. " LIMIT 1") do
-                author_name = author.username
-            end
-            api.send_video(user_id,row.file_id,{caption = row.video_title .. "\n\nLoaded by: " .. api.fmt.mention(row.author_id,author_name),
-                reply_markup = kb,
-                parse_mode = "html"})
-            local res = coroutine.yield()
-            if res.message.text == "🛑" then
-                is_finished = true
-                break
-            end
+    io.write(user_id .. " |  The user has started watching the videos\n")
+    for row in db:nrows("SELECT video_title,file_id,author_id FROM videos ORDER BY RANDOM()") do
+        local kb = api.keyboard(true, true)
+            :row({'🆕'})
+            :row({'🛑'})
+        local author_name = "unknown"
+        for author in db:nrows("SELECT username FROM users WHERE user_id = " .. row.author_id .. " LIMIT 1") do
+            author_name = author.username
         end
-        if is_finished then
-            api.send_message(user_id,"Doomscrolling finished")
+        api.send_video(user_id,row.file_id,{caption = row.video_title .. "\n\nLoaded by: " .. api.fmt.mention(row.author_id,author_name),
+            reply_markup = kb,
+            parse_mode = "html"})
+        local res = coroutine.yield()
+        if res.message.text ~= "🆕" then
             break
         end
     end
+    api.send_message(user_id,"You have been watched all loaded videos")
 end
 
 -------------------
