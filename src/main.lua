@@ -339,6 +339,31 @@ local function help(user_id)
     api.send_message(user_id,helping_msg)
 end
 
+local function getVideos()
+    
+end
+
+local function showRandomVids(user_id)
+    local is_finished = false
+    while true do
+        for row in db:nrows("SELECT video_title,file_id FROM videos ORDER BY RANDOM()") do
+            local kb = api.keyboard(true, true)
+                :row({'🆕'})
+                :row({'🛑'})
+            api.send_video(user_id,row.file_id,{ reply_markup = kb })
+            local res = coroutine.yield()
+            if res.message.text == "🛑" then
+                is_finished = true
+                break
+            end
+        end
+        if is_finished then
+            api.send_message(user_id,"Doomscrolling finished")
+            break
+        end
+    end
+end
+
 -------------------
 --- BOT RUNTIME ---
 -------------------
@@ -403,6 +428,9 @@ function api.on_update(update)
             coroutine.resume(co,user_id)
         elseif cmd == "/help" then
             help(user_id)
+        elseif cmd == "/scroll" then
+            co = coroutine.create(showRandomVids)
+            coroutine.resume(co,user_id)
         end
         
         if co then
