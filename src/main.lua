@@ -6,12 +6,14 @@ local sqlite = require("lsqlite3")
 --- BOT SETUP --- 
 -----------------
 
--- Config loading --
+-- Global variables --
 local ACTIVE_DIALOGUES = {}
 local LOADED_USERS = {}
 local TEMP_MESSAGES = {}
 
+-- Config loading --
 local CONFIG = nil
+-- Trying to load configuration from json if failing creating new
 if not utils.getJsonContent("config.json") then
     utils.createJsonFile("config.json",{
         bot_token = "YOUR_BOT_TOKEN"
@@ -28,6 +30,7 @@ else
     end
 end
 
+-- Getting token from user -- 
 if CONFIG.bot_token == "YOUR_BOT_TOKEN" then
     io.write("Please enter telegram bot api token:\n")
     local token = io.read()
@@ -39,7 +42,7 @@ local api = require("telegram-bot-lua").configure(CONFIG.bot_token)
 -- Command list loading --
 local COMMAND_LIST = require("commandList")
 
--- "Database setup --
+-- Database setup --
 local db = sqlite.open("database/AFipedia.db")
 local res = db:exec([[
     PRAGMA foreign_keys = ON;
@@ -62,6 +65,7 @@ local res = db:exec([[
     )
 ]])
 
+-- In case of failing write error message --
 if res == sqlite.ERROR then
     io.write("Error while setting up database, err: " .. db:errmsg())
     os.exit()
@@ -71,7 +75,7 @@ end
 
 
 -- Functions --
-local function helloName(user_id)
+local function helloName(user_id) -- Just testing func that I left here for fun
     api.send_message(user_id,"Enter your name")
 
     local res = coroutine.yield().message.text
@@ -85,7 +89,7 @@ local function postVideo(user_id)
 
     local file_id = nil
     local video_title = nil
-    while not file_id do
+    while not file_id do -- Getting video from user if video with caption save it like video title --
         api.send_message(user_id,"Please send video to upload")
         local response = coroutine.yield()
         if response.message and response.message.video then
@@ -96,7 +100,7 @@ local function postVideo(user_id)
         end
     end
 
-    while not video_title do
+    while not video_title do -- Getting video title from user --
         api.send_message(user_id,"Please send video title. Video title must be shorter than 100 symbols")
         local response = coroutine.yield()
         if response.message and response.message.text and utf8.len(response.message.text) <= 100 then
@@ -106,19 +110,26 @@ local function postVideo(user_id)
         end
     end
 
+    -- Posting date --
     local posting_date = os.time()
 
+    -- Inserting data about video into database --
     local insert = db:prepare("INSERT INTO videos (author_id,file_id,video_title,posting_date) VALUES (?,?,?,?)")
     insert:bind_values(user_id,file_id,video_title,posting_date)
     local res = insert:step()
     insert:finalize()
+
+    -- Check if all done --
     if res == sqlite.DONE then
         api.send_message(user_id,"Video successfully loaded")
         io.write(user_id .. " | Successfully loaded video with title " .. video_title .. "\n")
+    else
+        api.send_message(user_id,"Something went wrong:(")
+        io.write(user_id .. " | Something went wrong while inserting data about video into database, " .. db:errmsg())
     end
 end
 
-local function newUserCreate(user)
+local function newUserCreate(user) -- Function to save new users into database --
     local user_id = user.id
     local user_lang = user.language_code
     local username = user.firs_name
@@ -135,7 +146,7 @@ local function newUserCreate(user)
     end
 end
 
-local function getUserVideos(user_id)
+local function getUserVideos(user_id) -- Func to get table with user's videos --
     local videos = {}
 
     for video in db:nrows("SELECT * FROM videos WHERE author_id = " .. user_id) do
@@ -145,7 +156,7 @@ local function getUserVideos(user_id)
     return videos
 end
 
-local function videosSelector(videos,selector_text)
+local function videosSelector(videos,selector_text) -- Func to get content of selector message -- 
     local selector = {}
     if not videos or type(videos) ~= "table" then return nil end
     if type(selector_text) ~= "string" then return nil end
@@ -223,8 +234,10 @@ local function videosSelector(videos,selector_text)
     return selector
 end
 
-local function checkUserVideos(user_id,videos_author)
+local function checkUserVideos(user_id,videos_author) -- Func to check user's videos by username --
     local index = tostring(user_id)
+
+    -- Trying to get username from user if it isn't user with that name in db say about that --
     while not videos_author do
         api.send_message(user_id,"Please enter username")
         local select = db:prepare("SELECT user_id FROM users WHERE username = ?")
@@ -241,7 +254,8 @@ local function checkUserVideos(user_id,videos_author)
             api.send_message(user_id,"Can't found user with that username")
         end
     end
-    
+
+    -- Getting user's videos and sending selector message --
     local videos = getUserVideos(videos_author)
     local selector = videosSelector(videos,"Please select video")
     if not selector then return nil end
@@ -281,7 +295,7 @@ local function checkUserVideos(user_id,videos_author)
     end                                             
 end
 
-function api.is_command(message)
+function api.is_command(message) -- Simplification version of telegram-bot-lua lib function --
     if not message or not message.text then return false end
     if message.text:sub(1,1) == "/" then
         return true
@@ -290,8 +304,7 @@ function api.is_command(message)
     end
 end
 
-local function deletePost(user_id)
-    local index = tostring(user_id)
+local function deletePost(user_id) -- Func to delete loaded video --
     local videos = getUserVideos(user_id)
     local selector = videosSelector(videos,"Please select video to delete")
     if not selector then return nil end
@@ -335,6 +348,7 @@ local function help(user_id)
 end
 
 local function showRandomVids(user_id)
+    -- Here we're sending random video to user if '🛑' haven't pressed do it again --
     local is_finished = false
     while true do
         for row in db:nrows("SELECT video_title,file_id,author_id FROM videos ORDER BY RANDOM()") do
