@@ -121,12 +121,7 @@ end
 local function newUserCreate(user)
     local user_id = user.id
     local user_lang = user.language_code
-    local username = nil
-    if user.username then
-        username = user.username
-    else
-        username = user.first_name
-    end
+    local username = user.firs_name
 
     local insert = db:prepare("INSERT INTO users (user_id,username,language) VALUES (?,?,?)")
     if not insert then io.write(user_id .. " | Error while inserting into table " .. db:errmsg() .. "\n") end
@@ -342,11 +337,17 @@ end
 local function showRandomVids(user_id)
     local is_finished = false
     while true do
-        for row in db:nrows("SELECT video_title,file_id FROM videos ORDER BY RANDOM()") do
+        for row in db:nrows("SELECT video_title,file_id,author_id FROM videos ORDER BY RANDOM()") do
             local kb = api.keyboard(true, true)
                 :row({'🆕'})
                 :row({'🛑'})
-            api.send_video(user_id,row.file_id,{ reply_markup = kb })
+            local author_name = "unknown"
+            for author in db:nrows("SELECT username FROM users WHERE user_id = " .. row.author_id .. " LIMIT 1") do
+                author_name = author.username
+            end
+            api.send_video(user_id,row.file_id,{caption = row.video_title .. "\n\nLoaded by: " .. api.fmt.mention(row.author_id,author_name),
+                reply_markup = kb,
+                parse_mode = "html"})
             local res = coroutine.yield()
             if res.message.text == "🛑" then
                 is_finished = true
