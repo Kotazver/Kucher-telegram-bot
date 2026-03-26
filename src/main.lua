@@ -132,7 +132,7 @@ end
 local function newUserCreate(user) -- Function to save new users into database --
     local user_id = user.id
     local user_lang = user.language_code
-    local username = user.firs_name
+    local username = user.first_name
 
     local insert = db:prepare("INSERT INTO users (user_id,username,language) VALUES (?,?,?)")
     if not insert then io.write(user_id .. " | Error while inserting into table " .. db:errmsg() .. "\n") end
@@ -396,7 +396,6 @@ function api.on_update(update)
 
     local index = tostring(user_id)
 
-    -- Check if user exists in database ---
     if not LOADED_USERS[index] and message then
         local check = db:prepare("SELECT 1 FROM users WHERE user_id = ? LIMIT 1")
         check:bind_values(user_id)
@@ -421,7 +420,23 @@ function api.on_update(update)
             TEMP_MESSAGES[index] = nil
         end
 
-        if cmd == "/back" then
+        if cmd == "/start" then
+            if not LOADED_USERS[index] and message then
+                local check = db:prepare("SELECT 1 FROM users WHERE user_id = ? LIMIT 1")
+                check:bind_values(user_id)
+                local res = check:step()
+
+                if res == sqlite.DONE then
+                    local succ = newUserCreate(message.from)
+                    if succ then
+                        io.write(user_id .. " | New user!\n")
+                    else
+                        io.write(user_id .. " | Failed when trying to add new user to db\n")
+                        print(db:errmsg())
+                    end
+                end
+            end
+        elseif cmd == "/back" then
             ACTIVE_DIALOGUES[index] = nil
         elseif cmd == "/hello" then
             co = coroutine.create(helloName)
