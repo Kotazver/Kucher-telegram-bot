@@ -18,7 +18,7 @@ if not utils.getJsonContent("config.json") then
     utils.createJsonFile("config.json",{
         bot_token = "YOUR_BOT_TOKEN"
     })
-    io.write("Can't load configuration file, generating new, to start bot set bot token\n")
+    utils.logMsg("Can't load configuration file, generating new, to start bot set bot token")
     os.exit()
 else
     CONFIG = utils.getJsonContent("config.json")
@@ -26,7 +26,7 @@ else
         io.write("Failed while loading configuration :(\n")
         os.exit()
     else
-        io.write("Successfully loaded configuration file\n")
+        utils.logMsg("Successfully loaded configuration file")
     end
 end
 
@@ -70,12 +70,14 @@ if res == sqlite.ERROR then
     io.write("Error while setting up database, err: " .. db:errmsg())
     os.exit()
 else
-    io.write("Successfully set up database\n")
+    utils.logMsg("Successfully set up database")
 end
 
 
 -- Functions --
 local function helloName(user_id) -- Just testing func that I left here for fun
+    utils.logMsg(user_id .. " | User called hellomsg")
+
     api.send_message(user_id,"Enter your name")
 
     local res = coroutine.yield().message.text
@@ -84,6 +86,8 @@ local function helloName(user_id) -- Just testing func that I left here for fun
 end
 
 local function postVideo(user_id)
+    utils.logMsg(user_id .. " | User posting video")
+
     if not user_id then return false,"Invalid arguments" end
     local index = tostring(user_id)
 
@@ -122,10 +126,10 @@ local function postVideo(user_id)
     -- Check if all done --
     if res == sqlite.DONE then
         api.send_message(user_id,"Video successfully loaded")
-        io.write(user_id .. " | Successfully loaded video with title " .. video_title .. "\n")
+        utils.logMsg(user_id .. " | Successfully loaded video with title " .. video_title)
     else
         api.send_message(user_id,"Something went wrong:(")
-        io.write(user_id .. " | Something went wrong while inserting data about video into database, " .. db:errmsg())
+        utils.logMsg(user_id .. " | Something went wrong while inserting data about video into database, " .. db:errmsg())
     end
 end
 
@@ -135,7 +139,7 @@ local function newUserCreate(user) -- Function to save new users into database -
     local username = user.first_name
 
     local insert = db:prepare("INSERT INTO users (user_id,username,language) VALUES (?,?,?)")
-    if not insert then io.write(user_id .. " | Error while inserting into table " .. db:errmsg() .. "\n") end
+    if not insert then return nil end
     insert:bind_values(user_id,username,user_lang)
     local succ = insert:step()
     insert:finalize()
@@ -237,7 +241,7 @@ end
 local function checkUserVideos(user_id,videos_author) -- Func to check user's videos by username --
     local index = tostring(user_id)
 
-    io.write(user_id .. " | User checking video by author name\n")
+    utils.logMsg(user_id .. " | User checking video by author name")
     -- Trying to get username from user if it isn't user with that name in db say about that --
     while not videos_author do
         api.send_message(user_id,"Please enter username")
@@ -251,10 +255,10 @@ local function checkUserVideos(user_id,videos_author) -- Func to check user's vi
         local result = select:step()
         if result == sqlite.ROW then
             videos_author = select:get_values()[1]
-            io.write(user_id .. " | Found user by name: " .. response.message.text .. " with user id: " .. videos_author .. "\n")
+            utils.logMsg(user_id .. " | Found user by name: " .. response.message.text .. " with user id: " .. videos_author)
         else
             api.send_message(user_id,"Can't found user with that username")
-            io.write(user_id .. " | Failed when trying to found user\n")
+            utils.logMsg(user_id .. " | Failed when trying to found user")
         end
     end
 
@@ -308,8 +312,8 @@ function api.is_command(message) -- Simplification version of telegram-bot-lua l
 end
 
 local function deletePost(user_id) -- Func to delete loaded video --
+    utils.logMsg(user_id .. " | User removing video")
     
-    io.write(user_id .. " | User removing video\n")
     local videos = getUserVideos(user_id)
     local selector = videosSelector(videos,"Please select video to delete")
     if not selector then return nil end
@@ -332,7 +336,7 @@ local function deletePost(user_id) -- Func to delete loaded video --
         elseif data:sub(1,4) == "page" then
             local video_num = data:sub(5,5) * 10 + data:sub(11,12) - 10
             db:execute("DELETE FROM videos WHERE video_id = " .. videos[video_num].video_id)
-            io.write(user_id .. " | User removed video with id " .. videos[video_num].video_id .. "\n")
+            utils.logMsg(user_id .. " | User removed video with id " .. videos[video_num].video_id)
             api.answer_callback_query(callback_query.id, {text = videos[video_num].video_title .. " removed"})
             api.edit_message_text(user_id,msg_id,"Video successfully deleted")
             return
@@ -342,7 +346,7 @@ local function deletePost(user_id) -- Func to delete loaded video --
 end
 
 local function help(user_id)
-    io.write(user_id .. " | Called helping message\n")
+    utils.logMsg(user_id .. " | Called helping message")
     local helping_msg = "Bot provides abillity to share funny videos with other users\n\n"
     for i,group in pairs(COMMAND_LIST) do
         local len = nil
@@ -356,7 +360,7 @@ end
 
 local function showRandomVids(user_id)
     -- Here we're sending random video to user if '🛑' haven't pressed do it again --
-    io.write(user_id .. " |  The user has started watching the videos\n")
+    utils.logMsg(user_id .. " |  The user has started watching the videos")
     for row in db:nrows("SELECT video_title,file_id,author_id FROM videos ORDER BY RANDOM()") do
         local kb = api.keyboard(true, true)
             :row({'🆕'})
@@ -396,21 +400,6 @@ function api.on_update(update)
 
     local index = tostring(user_id)
 
-    if not LOADED_USERS[index] and message then
-        local check = db:prepare("SELECT 1 FROM users WHERE user_id = ? LIMIT 1")
-        check:bind_values(user_id)
-        local res = check:step()
-
-        if res == sqlite.DONE then
-            local succ = newUserCreate(message.from)
-            if succ then
-                io.write(user_id .. " | New user!\n")
-            else
-                io.write(user_id .. " | Failed when trying to add new user to db\n")
-            end
-        end
-    end
-
     -- Command handling --
     if api.is_command(update.message) then
         local cmd = string.lower(update.message.text)
@@ -429,9 +418,9 @@ function api.on_update(update)
                 if res == sqlite.DONE then
                     local succ = newUserCreate(message.from)
                     if succ then
-                        io.write(user_id .. " | New user!\n")
+                        utils.logMsg(user_id .. " | New user")
                     else
-                        io.write(user_id .. " | Failed when trying to add new user to db\n")
+                        utils.logMsg(user_id .. " | Failed when trying to add new user to db")
                         print(db:errmsg())
                     end
                 end
@@ -462,7 +451,7 @@ function api.on_update(update)
         
         if co then
             ACTIVE_DIALOGUES[index] = co
-            io.write(user_id .. " | Coroutine started and added to active dialogues\n")
+            utils.logMsg(user_id .. " | Coroutine started and added to active dialogues")
         end
     elseif ACTIVE_DIALOGUES[index] then
         local co = ACTIVE_DIALOGUES[index]
@@ -476,7 +465,7 @@ function api.on_update(update)
             ACTIVE_DIALOGUES[index] = nil
             api.delete_message(user_id,TEMP_MESSAGES[index])
             TEMP_MESSAGES[index] = nil
-            io.write(user_id .. " | Coroutine finished and removed from active dialogues\n")
+            utils.logMsg(user_id .. " | Coroutine finished and removed from active dialogues")
         end
     else
         api.send_message(user_id,"Unknown command")
