@@ -29,4 +29,13 @@ UTILS.createJsonFile = function (path,table)
     end
 end
 
+UTILS.logMsg = function (text)
+    if not text or type(text) ~= "string" then
+        return nil
+    else
+        io.write(text .. "\n")
+        io.flush()
+    end
+end
+
 return UTILS
