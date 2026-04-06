@@ -341,6 +341,8 @@ local function deletePost(user_id) -- Func to delete loaded video --
             api.edit_message_text(user_id,msg_id,"Video successfully deleted")
             return
         end
+
+        api.edit_message_text(user_id,msg_id,selector.page_text[current_page],{reply_markup = selector.kbs[current_page]})
         ::continue::
     end  
 end
@@ -424,7 +426,7 @@ function api.on_update(update)
                         print(db:errmsg())
                     end
                 end
-            end
+        end
         elseif cmd == "/back" then
             ACTIVE_DIALOGUES[index] = nil
         elseif cmd == "/hello" then
